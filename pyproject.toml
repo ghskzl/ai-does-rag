@@ -1,0 +1,38 @@
+[project]
+name = "ai-docs-rag"
+version = "0.1.0"
+description = "AI技术文档智能问答系统 - 基于Agentic RAG"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi[standard]>=0.115.12",
+    "uvicorn>=0.34.0",
+    "pydantic>=2.11.3",
+    "pydantic-settings>=2.8.1",
+    "opensearch-py>=3.0.0",
+    "httpx>=0.28.1",
+    "langfuse>=3.0.0",
+    "redis>=6.4.0",
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langchain-ollama>=0.3.0",
+    "pymupdf>=1.25.0",
+]
+readme = "README.md"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.11.5",
+]
+
+[tool.ruff]
+line-length = 130
+exclude = [".venv/**"]
+src = ["src", "tests"]
+lint.select = ["I"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

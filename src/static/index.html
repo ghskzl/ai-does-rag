@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Docs RAG - 文档管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 24px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .header .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header h1 { font-size: 22px; font-weight: 600; }
+        .header .subtitle { font-size: 13px; color: #8892b0; margin-top: 4px; }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+        .main { padding: 32px 0; }
+
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            padding: 28px;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1a1a2e;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .icon { font-size: 20px; }
+
+        .upload-zone {
+            border: 2px dashed #d0d5dd;
+            border-radius: 10px;
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fafbfc;
+        }
+
+        .upload-zone:hover, .upload-zone.drag-over {
+            border-color: #4361ee;
+            background: #f0f4ff;
+        }
+
+        .upload-zone .upload-icon {
+            font-size: 48px;
+            color: #4361ee;
+            margin-bottom: 12px;
+        }
+
+        .upload-zone .upload-text { font-size: 15px; color: #555; }
+        .upload-zone .upload-hint { font-size: 13px; color: #999; margin-top: 8px; }
+
+        .upload-zone input[type="file"] { display: none; }
+
+        .upload-actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .upload-actions input[type="text"] {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #d0d5dd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .upload-actions input[type="text"]:focus { border-color: #4361ee; }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #4361ee;
+            color: #fff;
+        }
+
+        .btn-primary:hover { background: #3a56d4; }
+        .btn-primary:disabled { background: #a0aec0; cursor: not-allowed; }
+
+        .btn-danger {
+            background: #fff;
+            color: #e53e3e;
+            border: 1px solid #e53e3e;
+            padding: 6px 14px;
+            font-size: 13px;
+        }
+
+        .btn-danger:hover { background: #fff5f5; }
+
+        .file-info {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #f0f4ff;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #4361ee;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-info.visible { display: flex; }
+
+        .status-bar {
+            margin-top: 16px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status-bar.visible { display: block; }
+        .status-bar.success { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+        .status-bar.error { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; }
+        .status-bar.loading { background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; }
+
+        .doc-table { width: 100%; border-collapse: collapse; }
+
+        .doc-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 2px solid #e2e8f0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .doc-table td {
+            padding: 14px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+
+        .doc-table tr:hover { background: #f7fafc; }
+
+        .doc-title { font-weight: 500; color: #1a1a2e; }
+        .doc-source { font-size: 12px; color: #999; margin-top: 2px; }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-blue { background: #ebf8ff; color: #2b6cb0; }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: #999;
+        }
+
+        .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+        .empty-state p { font-size: 14px; }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #bee3f8;
+            border-top-color: #2b6cb0;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .refresh-btn {
+            background: none;
+            border: 1px solid #d0d5dd;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #555;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover { border-color: #4361ee; color: #4361ee; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div>
+                <h1>AI Docs RAG</h1>
+                <div class="subtitle">AI 技术文档知识库 — 文档管理</div>
+            </div>
+            <div class="nav-links" style="display:flex;gap:8px;">
+                <a href="/" style="color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:8px 16px;font-size:13px;background:rgba(67,97,238,0.3);border-color:#4361ee;">文档管理</a>
+                <a href="/ask.html" style="color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:8px 16px;font-size:13px;">智能问答</a>
+                <a href="/redoc" style="color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:8px 16px;font-size:13px;">API 文档</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="container">
+            <div class="card">
+                <div class="card-title"><span class="icon">📄</span> 上传文档</div>
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">⬆</div>
+                    <div class="upload-text">拖拽文件到此处，或点击选择文件</div>
+                    <div class="upload-hint">支持 PDF、Markdown、TXT、RST 格式</div>
+                    <input type="file" id="fileInput" accept=".pdf,.md,.markdown,.txt,.rst">
+                </div>
+                <div class="file-info" id="fileInfo">
+                    <span>📎</span>
+                    <span id="fileName"></span>
+                </div>
+                <div class="upload-actions">
+                    <input type="text" id="titleInput" placeholder="文档标题（可选，默认使用文件名）">
+                    <button class="btn btn-primary" id="uploadBtn" disabled>上传入库</button>
+                </div>
+                <div class="status-bar" id="statusBar"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title" style="justify-content:space-between;">
+                    <span style="display:flex;align-items:center;gap:8px;">
+                        <span class="icon">📚</span> 已入库文档
+                    </span>
+                    <button class="refresh-btn" onclick="loadDocuments()">刷新</button>
+                </div>
+                <div id="docList">
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <p>暂无文档，请上传文件开始</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1/documents';
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const titleInput = document.getElementById('titleInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const statusBar = document.getElementById('statusBar');
+        const docList = document.getElementById('docList');
+
+        let selectedFile = null;
+
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('drag-over');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('drag-over');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) handleFile(files[0]);
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+        });
+
+        function handleFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const allowed = ['pdf', 'md', 'markdown', 'txt', 'rst'];
+            if (!allowed.includes(ext)) {
+                showStatus('不支持的文件格式，请上传 PDF、Markdown、TXT 或 RST 文件', 'error');
+                return;
+            }
+            selectedFile = file;
+            fileName.textContent = `${file.name} (${formatSize(file.size)})`;
+            fileInfo.classList.add('visible');
+            uploadBtn.disabled = false;
+            hideStatus();
+        }
+
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="spinner"></span> 处理中...';
+            showStatus('正在解析文档、生成向量并入库，请稍候...', 'loading');
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            if (titleInput.value.trim()) {
+                formData.append('title', titleInput.value.trim());
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showStatus(`上传失败: ${data.detail || '未知错误'}`, 'error');
+                } else {
+                    showStatus(
+                        `上传成功! 文档 "${data.title}" 已拆分为 ${data.chunks_created} 个片段（共 ${data.total_words.toLocaleString()} 词）`,
+                        'success'
+                    );
+                    selectedFile = null;
+                    fileInput.value = '';
+                    titleInput.value = '';
+                    fileInfo.classList.remove('visible');
+                    uploadBtn.disabled = true;
+                    loadDocuments();
+                }
+            } catch (err) {
+                showStatus(`网络错误: ${err.message}`, 'error');
+            }
+
+            uploadBtn.innerHTML = '上传入库';
+            uploadBtn.disabled = !selectedFile;
+        });
+
+        async function loadDocuments() {
+            try {
+                const res = await fetch(API_BASE + '/');
+                const data = await res.json();
+
+                if (!res.ok || data.total === 0) {
+                    docList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <p>${!res.ok ? '加载失败' : '暂无文档，请上传文件开始'}</p>
+                        </div>`;
+                    return;
+                }
+
+                let html = `
+                    <table class="doc-table">
+                        <thead>
+                            <tr>
+                                <th>文档</th>
+                                <th>片段数</th>
+                                <th>总词数</th>
+                                <th>入库时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                for (const doc of data.documents) {
+                    html += `
+                        <tr>
+                            <td>
+                                <div class="doc-title">${escapeHtml(doc.title)}</div>
+                                <div class="doc-source">${escapeHtml(doc.source)}</div>
+                            </td>
+                            <td><span class="badge badge-blue">${doc.chunk_count}</span></td>
+                            <td>${doc.total_words.toLocaleString()}</td>
+                            <td>${formatDate(doc.created_at)}</td>
+                            <td><button class="btn btn-danger" onclick="deleteDoc('${doc.doc_id}')">删除</button></td>
+                        </tr>`;
+                }
+
+                html += '</tbody></table>';
+                docList.innerHTML = html;
+            } catch (err) {
+                docList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">⚠</div>
+                        <p>无法连接到服务器: ${err.message}</p>
+                    </div>`;
+            }
+        }
+
+        async function deleteDoc(docId) {
+            if (!confirm('确定要删除此文档及其所有片段吗？')) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/${docId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadDocuments();
+                } else {
+                    const data = await res.json();
+                    alert(`删除失败: ${data.detail || '未知错误'}`);
+                }
+            } catch (err) {
+                alert(`网络错误: ${err.message}`);
+            }
+        }
+
+        function showStatus(msg, type) {
+            statusBar.textContent = msg;
+            statusBar.className = `status-bar visible ${type}`;
+        }
+
+        function hideStatus() {
+            statusBar.className = 'status-bar';
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            try {
+                const d = new Date(dateStr);
+                return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            } catch { return dateStr; }
+        }
+
+        function escapeHtml(text) {
+            const el = document.createElement('span');
+            el.textContent = text;
+            return el.innerHTML;
+        }
+
+        loadDocuments();
+    </script>
+</body>
+</html>
